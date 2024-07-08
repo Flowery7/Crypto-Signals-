@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Signals </title>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium Web:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Titillium Web', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: top;
+            align-items: top;
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 5px;
+        }
+        .crypto-current {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .crypto-current:last-child {
+            border-bottom: none;
+        }
+        .crypto-name {
+            font-weight: 700;
+        }
+        .price {
+            margin-right: 10px;
+        }
+        .price-change {
+            color: #f44336;
+        }
+        .positive-change {
+            color: #4CAF50;
+        }
+        #signals {
+            margin-top: 20px;
+        }
+        .signal {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .signal .time {
+            font-size: 0.8em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> 🚦 Crypto Signals 🚦</h1>
+        <div id="output"></div>
+        <div id="signals"></div>
+    </div>
+
+    <script>
+        const API_KEY = 'ADDAPIKEY' ';
+        const BASE_URL = 'https://api.coincap.io/v2';
+        const cryptocurrencies = ['bitcoin', 'ethereum', 'solana', 'dogecoin', 'cardano'];
+        const originalPrices = {};
+        const triggeredSignals = {};
+        const outputDiv = document.getElementById('output');
+        const signalsDiv = document.getElementById('signals');
+
+        async function getCryptoPrice(crypto) {
+            try {
+                const url = `${BASE_URL}/assets/${crypto}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`
+                    }
+                });
+                const data = await response.json();
+                const price = parseFloat(data.data.priceUsd);
+                return price;
+            } catch (error) {
+                console.error(`Error fetching price for ${crypto}:`, error);
+                return null;
+            }
+        }
+
+        function displayInitialData(crypto, price) {
+            originalPrices[crypto] = price;
+            triggeredSignals[crypto] = false;
+            const element = document.createElement('div');
+            element.className = 'crypto-current';
+            element.id = `crypto-${crypto}`;
+            element.innerHTML = `
+                <span class="crypto-name">${crypto.charAt(0).toUpperCase() + crypto.slice(1)}</span>
+                <span class="price" id="price-${crypto}">£${price.toFixed(2)}</span>
+                <span id="percentage-${crypto}">0.00%</span>
+            `;
+            outputDiv.appendChild(element);
+        }
+
+        function updatePriceData(crypto, price, percentageChange) {
+            const priceElement = document.getElementById(`price-${crypto}`);
+            const percentageElement = document.getElementById(`percentage-${crypto}`);
+            const changeClass = percentageChange >= 0 ? 'positive-change' : 'price-change';
+            priceElement.innerText = `$${price.toFixed(2)}`;
+            percentageElement.innerHTML = `<span class="${changeClass}">${percentageChange.toFixed(2)}%</span>`;
+        }
+
+        function addSignal(crypto, signal) {
+            const date = new Date().toLocaleString();
+            const signalElement = document.createElement('div');
+            signalElement.className = 'signal';
+            signalElement.innerHTML = `
+                <div>${crypto.charAt(0).toUpperCase() + crypto.slice(1)} ${signal}</div>
+                <div class="time">${date}</div>
+            `;
+            signalsDiv.appendChild(signalElement);
+        }
+
+        async function monitorPrices() {
+            const initialTimestamp = new Date().toLocaleString();
+            document.querySelector('h1').innerHTML += ` <br>  ${initialTimestamp}`;
+
+            for (let crypto of cryptocurrencies) {
+                const price = await getCryptoPrice(crypto);
+                if (price !== null) {
+                    displayInitialData(crypto, price);
+                } else {
+                    displayInitialData(crypto, 0);
+                }
+            }
+
+            const startTime = new Date().getTime();
+            while (new Date().getTime() - startTime < 28800 * 1000) {
+                for (let crypto of cryptocurrencies) {
+                    const currentPrice = await getCryptoPrice(crypto);
+                    if (currentPrice !== null) {
+                        const initialPrice = originalPrices[crypto];
+                        const percentageChange = ((currentPrice - initialPrice) / initialPrice) * 100;
+                        updatePriceData(crypto, currentPrice, percentageChange);
+
+                        if (percentageChange > 1 && !triggeredSignals[crypto]) {
+                            addSignal(crypto, '🚦Buy signal - Percentage Change✅ > 1%');
+                            triggeredSignals[crypto] = true;
+                        }
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            monitorPrices();
+        });
+    </script>
+</body>
+</html>
